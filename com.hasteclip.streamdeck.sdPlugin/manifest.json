@@ -1,0 +1,283 @@
+{
+	"Name": "HasteClip",
+	"Version": "0.1.0.0",
+	"Author": "HasteClip",
+	"Description": "Save clips, start and stop clipping, recording and streaming, switch scenes and presets, show and hide sources, and mute or turn up your sounds in HasteClip, the free clip recorder.",
+	"URL": "https://hasteclip.com",
+	"Category": "HasteClip",
+	"CategoryIcon": "imgs/plugin/category-icon",
+	"Icon": "imgs/plugin/marketplace",
+	"CodePath": "bin/plugin.js",
+	"SDKVersion": 2,
+	"Software": {
+		"MinimumVersion": "6.6"
+	},
+	"OS": [
+		{
+			"Platform": "mac",
+			"MinimumVersion": "13"
+		},
+		{
+			"Platform": "windows",
+			"MinimumVersion": "10"
+		}
+	],
+	"Nodejs": {
+		"Version": "20",
+		"Debug": "enabled"
+	},
+	"UUID": "com.hasteclip.streamdeck",
+	"Actions": [
+		{
+			"Name": "Save clip",
+			"UUID": "com.hasteclip.streamdeck.save-clip",
+			"Icon": "imgs/actions/save-clip/icon",
+			"Tooltip": "Save what HasteClip kept while clipping. While recording, it marks the moment too.",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/save-clip/key",
+					"TitleAlignment": "bottom"
+				}
+			]
+		},
+		{
+			"Name": "Clipping",
+			"UUID": "com.hasteclip.streamdeck.clipping",
+			"Icon": "imgs/actions/clipping/icon",
+			"Tooltip": "Start or stop clipping. Green while HasteClip keeps the last minutes ready to save.",
+			"Controllers": [
+				"Keypad"
+			],
+			"DisableAutomaticStates": true,
+			"States": [
+				{
+					"Name": "Clipping off",
+					"Image": "imgs/actions/clipping/off",
+					"TitleAlignment": "bottom"
+				},
+				{
+					"Name": "Clipping on",
+					"Image": "imgs/actions/clipping/on",
+					"TitleAlignment": "bottom"
+				}
+			]
+		},
+		{
+			"Name": "Recording",
+			"UUID": "com.hasteclip.streamdeck.recording",
+			"Icon": "imgs/actions/recording/icon",
+			"Tooltip": "Start or stop recording. Red while recording, with how long it's been going.",
+			"Controllers": [
+				"Keypad"
+			],
+			"DisableAutomaticStates": true,
+			"States": [
+				{
+					"Name": "Not recording",
+					"Image": "imgs/actions/recording/off",
+					"TitleAlignment": "bottom"
+				},
+				{
+					"Name": "Recording",
+					"Image": "imgs/actions/recording/on",
+					"TitleAlignment": "bottom"
+				}
+			]
+		},
+		{
+			"Name": "Stream",
+			"UUID": "com.hasteclip.streamdeck.stream",
+			"Icon": "imgs/actions/stream/icon",
+			"Tooltip": "Go live (HasteClip asks first, in its window) or end the stream. Purple while live, with how long it's been.",
+			"Controllers": [
+				"Keypad"
+			],
+			"DisableAutomaticStates": true,
+			"States": [
+				{
+					"Name": "Not live",
+					"Image": "imgs/actions/stream/off",
+					"TitleAlignment": "bottom"
+				},
+				{
+					"Name": "Live",
+					"Image": "imgs/actions/stream/on",
+					"TitleAlignment": "bottom"
+				}
+			]
+		},
+		{
+			"Name": "Screenshot",
+			"UUID": "com.hasteclip.streamdeck.screenshot",
+			"Icon": "imgs/actions/screenshot/icon",
+			"Tooltip": "Take a screenshot of what HasteClip records.",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/screenshot/key",
+					"TitleAlignment": "bottom"
+				}
+			]
+		},
+		{
+			"Name": "Mark moment",
+			"UUID": "com.hasteclip.streamdeck.mark",
+			"Icon": "imgs/actions/mark/icon",
+			"Tooltip": "Mark this moment in the recording, to find it again.",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/mark/key",
+					"TitleAlignment": "bottom"
+				}
+			]
+		},
+		{
+			"Name": "Scene",
+			"UUID": "com.hasteclip.streamdeck.scene",
+			"Icon": "imgs/actions/scene/icon",
+			"Tooltip": "Show a scene, live while capturing. Green while it's the one shown.",
+			"PropertyInspectorPath": "ui/scene.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"DisableAutomaticStates": true,
+			"States": [
+				{
+					"Name": "Not shown",
+					"Image": "imgs/actions/scene/off",
+					"TitleAlignment": "bottom"
+				},
+				{
+					"Name": "Shown",
+					"Image": "imgs/actions/scene/on",
+					"TitleAlignment": "bottom"
+				}
+			]
+		},
+		{
+			"Name": "Scenes",
+			"UUID": "com.hasteclip.streamdeck.scenes",
+			"Icon": "imgs/actions/scenes/icon",
+			"Tooltip": "Turn to pick a scene, push to show it.",
+			"Controllers": [
+				"Encoder"
+			],
+			"Encoder": {
+				"layout": "$A1",
+				"Icon": "imgs/actions/scenes/dial",
+				"TriggerDescription": {
+					"Rotate": "Pick a scene",
+					"Push": "Show it",
+					"Touch": "Show it"
+				}
+			},
+			"States": [
+				{
+					"Image": "imgs/actions/scenes/key"
+				}
+			]
+		},
+		{
+			"Name": "Preset",
+			"UUID": "com.hasteclip.streamdeck.preset",
+			"Icon": "imgs/actions/preset/icon",
+			"Tooltip": "Use a preset. Green while it's the one in use.",
+			"PropertyInspectorPath": "ui/preset.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"DisableAutomaticStates": true,
+			"States": [
+				{
+					"Name": "Not in use",
+					"Image": "imgs/actions/preset/off",
+					"TitleAlignment": "bottom"
+				},
+				{
+					"Name": "In use",
+					"Image": "imgs/actions/preset/on",
+					"TitleAlignment": "bottom"
+				}
+			]
+		},
+		{
+			"Name": "Show or hide source",
+			"UUID": "com.hasteclip.streamdeck.source",
+			"Icon": "imgs/actions/source/icon",
+			"Tooltip": "Show or hide a source in the scene shown. Green while it's shown.",
+			"PropertyInspectorPath": "ui/source.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"DisableAutomaticStates": true,
+			"States": [
+				{
+					"Name": "Hidden",
+					"Image": "imgs/actions/source/off",
+					"TitleAlignment": "bottom"
+				},
+				{
+					"Name": "Shown",
+					"Image": "imgs/actions/source/on",
+					"TitleAlignment": "bottom"
+				}
+			]
+		},
+		{
+			"Name": "Sound",
+			"UUID": "com.hasteclip.streamdeck.sound",
+			"Icon": "imgs/actions/sound/icon",
+			"Tooltip": "Mute or unmute a sound, or hold to talk. On a dial: turn for its volume, push to mute.",
+			"PropertyInspectorPath": "ui/sound.html",
+			"Controllers": [
+				"Keypad",
+				"Encoder"
+			],
+			"DisableAutomaticStates": true,
+			"Encoder": {
+				"layout": "$B1",
+				"Icon": "imgs/actions/sound/dial-mic",
+				"TriggerDescription": {
+					"Rotate": "Volume",
+					"Push": "Mute or unmute",
+					"Touch": "Mute or unmute"
+				}
+			},
+			"States": [
+				{
+					"Name": "Live",
+					"Image": "imgs/actions/sound/live",
+					"TitleAlignment": "bottom"
+				},
+				{
+					"Name": "Muted",
+					"Image": "imgs/actions/sound/muted",
+					"TitleAlignment": "bottom"
+				}
+			]
+		},
+		{
+			"Name": "Open HasteClip",
+			"UUID": "com.hasteclip.streamdeck.open",
+			"Icon": "imgs/actions/open/icon",
+			"Tooltip": "Bring HasteClip's window to the front, or start HasteClip.",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/open/key",
+					"TitleAlignment": "bottom"
+				}
+			]
+		}
+	]
+}
