@@ -10,7 +10,8 @@
     "watch": "rollup -c -w --watch.onEnd=\"streamdeck restart com.hasteclip.streamdeck\"",
     "test": "node --test \"test/**/*.test.ts\"",
     "validate": "streamdeck validate com.hasteclip.streamdeck.sdPlugin",
-    "pack": "npm run build && streamdeck pack com.hasteclip.streamdeck.sdPlugin --output dist --force"
+    "pack": "npm run build && streamdeck pack com.hasteclip.streamdeck.sdPlugin --output dist --force",
+    "version": "node scripts/sync-version.mjs && git add com.hasteclip.streamdeck.sdPlugin/manifest.json"
   },
   "engines": {
     "node": ">=24"
@@ -27,6 +28,7 @@
     "@rollup/plugin-typescript": "^12.1.0",
     "@tsconfig/node20": "^20.1.2",
     "@types/node": "~20.19.0",
+    "fflate": "^0.8.2",
     "rollup": "^4.0.2",
     "tslib": "^2.6.2",
     "typescript": "^5.2.2"

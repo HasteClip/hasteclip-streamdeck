@@ -87,6 +87,8 @@ export class HasteClip {
 	tooOld = false;
 	/** Where what happens to the connection is said. */
 	log: Log;
+	/** When a key or dial last asked HasteClip for something (ms since the epoch). */
+	lastAsked = 0;
 
 	#port: number;
 	#host: string;
@@ -136,6 +138,7 @@ export class HasteClip {
 
 	/** Ask HasteClip for `request`, and hear how it went. */
 	ask(request: Request): Promise<Reply> {
+		this.lastAsked = Date.now();
 		const socket = this.#socket;
 		if (!socket || !this.#hello) {
 			return Promise.resolve({ ok: false, why: this.tooOld ? "HasteClip needs an update" : "HasteClip isn't running" });

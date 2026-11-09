@@ -3,12 +3,14 @@
  * local port, see `hasteclip.ts`) and shows what it's doing.
  */
 import streamDeck from "@elgato/streamdeck";
+import { fileURLToPath } from "node:url";
 
 import { Clipping, Mark, Recording, SaveClip, Screenshot, Stream } from "./actions/capture";
 import { Open } from "./actions/open";
 import { Preset, Scene, Scenes } from "./actions/scenes";
 import { Sound, Source } from "./actions/sources";
 import { hasteclip } from "./hasteclip";
+import { QUIET_MS, Updater } from "./update";
 
 streamDeck.logger.setLevel("info");
 
@@ -17,6 +19,18 @@ for (const action of [new SaveClip(), new Clipping(), new Recording(), new Strea
 }
 
 // What happens to the connection, in the plugin's log.
-hasteclip.log = { info: (message) => streamDeck.logger.info(message) };
+const log = { info: (message: string) => streamDeck.logger.info(message), warn: (message: string) => streamDeck.logger.warn(message) };
+hasteclip.log = log;
 hasteclip.start();
+
+// Updates (release builds installed from GitHub): never while recording or
+// live, or while the deck's being used.
+const updater = new Updater({
+	dir: fileURLToPath(new URL("..", import.meta.url)),
+	log,
+	busy: () => Boolean(hasteclip.state?.recording || hasteclip.state?.streaming) || Date.now() - hasteclip.lastAsked < QUIET_MS,
+});
+hasteclip.onState(() => updater.nudge());
+void updater.start();
+
 streamDeck.connect();

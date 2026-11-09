@@ -43,7 +43,40 @@ starts clipping and does nothing if it's already on.
   support. Older versions don't answer the plugin, and its keys stay faint.
 - Stream Deck 6.6 or later, on Windows 10 or later, or macOS 13 or later.
 
-## Installing from source
+## Installing
+
+Download `com.hasteclip.streamdeck.streamDeckPlugin` from the
+[latest release](https://github.com/hasteclip/hasteclip-streamdeck/releases/latest)
+and open it. Stream Deck installs it.
+
+## Updates
+
+A plugin installed from a release keeps itself up to date. A few times a day
+it looks for a newer release, downloads it in the background, and checks the
+file against the checksum GitHub has for it. The new version replaces the
+old one only when nothing could be lost: HasteClip isn't recording or live,
+and nobody has used a key or dial for a couple of minutes. Then the plugin
+asks Stream Deck to restart it, which takes a second. If Stream Deck doesn't
+restart it, the new version starts the next time Stream Deck starts. The
+plugin's log in Stream Deck shows what happened.
+
+A build you made yourself never updates itself, and neither does a copy
+linked for development. Only builds from the release workflow carry
+`bin/updates.json`, which says where their releases come from.
+
+## Releasing
+
+```sh
+npm version patch   # or minor, major: bumps package.json and the manifest, commits, tags
+git push --follow-tags
+```
+
+Pushing the tag runs `.github/workflows/release.yml`. It tests, builds,
+validates and packs the plugin, then publishes the release that installed
+copies update from. The repository has to be public, or the plugins can't
+see its releases.
+
+## Building from source
 
 ```sh
 npm install
@@ -84,6 +117,10 @@ the keys come back to life as soon as HasteClip starts.
   whenever HasteClip's state changes, and only changes are sent to Stream
   Deck.
 - `src/actions/`: the actions.
+- `src/update.ts`: updates from the releases. `npm test` covers it too,
+  including a package made by Elgato's packer
+  (`test/fixtures/packed-by-cli.streamDeckPlugin`), whose ZIP64 layout
+  small zip readers can't read.
 - `com.hasteclip.streamdeck.sdPlugin/`: the plugin as Stream Deck loads it,
   with its manifest, images and settings pages (`ui/`, built with
   [sdpi-components](https://sdpi-components.dev)).

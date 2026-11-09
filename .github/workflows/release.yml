@@ -1,0 +1,48 @@
+# Release: push a tag vX.Y.Z, the version in package.json and in the
+# manifest (X.Y.Z.0). The plugin is tested, built, checked and packed, and
+# published as this tag's GitHub release with
+# com.hasteclip.streamdeck.streamDeckPlugin on it. Installed copies update
+# from that file (src/update.ts): the build carries bin/updates.json, which
+# tells it where its releases are. A build made anywhere else doesn't, and
+# never updates itself.
+#
+# Windows, where the Stream Deck CLI's packing is known to work.
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: The tag is the version
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          package=$(node -p "require('./package.json').version")
+          manifest=$(node -p "require('./com.hasteclip.streamdeck.sdPlugin/manifest.json').Version")
+          [ "$package" = "$tag" ] || { echo "package.json says $package, the tag $tag"; exit 1; }
+          [ "$manifest" = "$tag.0" ] || { echo "the manifest says $manifest, the tag $tag"; exit 1; }
+      - run: npm run build
+      - name: Updates come from this repo's releases
+        shell: bash
+        run: echo "{\"repo\":\"$GITHUB_REPOSITORY\"}" > com.hasteclip.streamdeck.sdPlugin/bin/updates.json
+      - run: npx streamdeck validate com.hasteclip.streamdeck.sdPlugin
+      - run: npx streamdeck pack com.hasteclip.streamdeck.sdPlugin --output dist --force
+      - name: Publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/com.hasteclip.streamdeck.streamDeckPlugin --title "HasteClip for Stream Deck ${GITHUB_REF_NAME#v}" --generate-notes
