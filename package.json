@@ -1,6 +1,6 @@
 {
   "name": "hasteclip-streamdeck",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "HasteClip for the Stream Deck: save clips, start and stop clipping, recording and streaming, switch scenes, show and hide sources, mute sounds.",
   "license": "GPL-3.0-or-later",
