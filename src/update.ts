@@ -10,8 +10,10 @@
  * the next time Stream Deck does.
  *
  * Only a build made by the release workflow updates itself: it carries
- * `bin/updates.json`, saying where its releases are. A copy linked for
- * development, or one built locally, never does.
+ * `bin/updates.json`, saying where its releases are and which version it
+ * is. A copy linked for development, one built locally, and the one for
+ * the Marketplace never do (nor read their own manifest, as Elgato's DRM
+ * asks).
  *
  * (Only syntax Node can run as it is, so the tests run this file directly.)
  */
@@ -205,7 +207,7 @@ function restart(): void {
 }
 
 export type UpdaterOptions = {
-	/** The plugin's folder (where its manifest is). */
+	/** The plugin's folder (`com.hasteclip.streamdeck.sdPlugin`). */
 	dir: string;
 	log: Log;
 	/** Whether an update now could lose something: recording, live, or a key used lately. */
@@ -240,13 +242,13 @@ export class Updater {
 	/** Start checking, if this is a release build installed in Stream Deck. */
 	async start(): Promise<void> {
 		try {
-			const marker = JSON.parse(await fs.readFile(path.join(this.#dir, "bin", "updates.json"), "utf8")) as { repo?: string };
-			const manifest = JSON.parse(await fs.readFile(path.join(this.#dir, "manifest.json"), "utf8")) as { Version?: string };
+			const marker = JSON.parse(await fs.readFile(path.join(this.#dir, "bin", "updates.json"), "utf8")) as { repo?: string; version?: string };
+			const version = numbers(marker.version ?? "");
 			// Installed by Stream Deck: in its Plugins folder, not a linked copy elsewhere.
 			const real = await fs.realpath(this.#dir);
-			if (path.basename(path.dirname(real)) !== "Plugins" || !marker.repo || !manifest.Version) return;
+			if (path.basename(path.dirname(real)) !== "Plugins" || !marker.repo || !version) return;
 			this.#repo = marker.repo;
-			this.#current = numbers(manifest.Version)?.join(".") ?? "";
+			this.#current = version.join(".");
 		} catch {
 			// A build of one's own: no updates.
 			return;

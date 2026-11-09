@@ -41,7 +41,7 @@ starts clipping and does nothing if it's already on.
 
 - HasteClip running on the same computer, in a version with Stream Deck
   support. Older versions don't answer the plugin, and its keys stay faint.
-- Stream Deck 6.6 or later, on Windows 10 or later, or macOS 13 or later.
+- Stream Deck 6.9 or later, on Windows 10 or later, or macOS 13 or later.
 
 ## Installing
 
@@ -61,8 +61,14 @@ restart it, the new version starts the next time Stream Deck starts. The
 plugin's log in Stream Deck shows what happened.
 
 A build you made yourself never updates itself, and neither does a copy
-linked for development. Only builds from the release workflow carry
-`bin/updates.json`, which says where their releases come from.
+linked for development. Only the GitHub builds from the release workflow
+carry `bin/updates.json`, which says where their releases come from and
+which version they are.
+
+The copy on the Elgato Marketplace is kept up to date by Stream Deck. Its
+build has no `bin/updates.json`, so it never updates itself. It also never
+changes or reads its own files, as Elgato's DRM requires: Stream Deck loads
+its pictures itself.
 
 ## Releasing
 
@@ -75,6 +81,13 @@ Pushing the tag runs `.github/workflows/release.yml`. It tests, builds,
 validates and packs the plugin, then publishes the release that installed
 copies update from. The repository has to be public, or the plugins can't
 see its releases.
+
+The same run also packs the plugin for the Elgato Marketplace, without
+`bin/updates.json`, and keeps that file on the run as **marketplace**.
+Upload that file in [Maker Console](https://maker.elgato.com).
+`marketplace/listing.md` has the listing's name, description, links and a
+checklist, and the folder has its pictures (`scripts/make-listing.py` makes
+them).
 
 ## Building from source
 
@@ -127,6 +140,8 @@ the keys come back to life as soon as HasteClip starts.
 - `scripts/make-images.py`: draws the images from the
   [Phosphor](https://phosphoricons.com) icons HasteClip uses and from
   HasteClip's logo.
+- `scripts/make-listing.py`: draws the Marketplace listing's pictures into
+  `marketplace/` (Chrome draws them headless, in HasteClip's font).
 - `npm run validate` checks the plugin the way Elgato's Marketplace does.
 
 ## License

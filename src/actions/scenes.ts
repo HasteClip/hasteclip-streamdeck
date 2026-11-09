@@ -61,7 +61,7 @@ export class Scenes extends HasteClipAction {
 	readonly #picks = new Map<string, { scene: number; timer: NodeJS.Timeout }>();
 
 	protected override look(_: Settings, state: State | undefined, _dial: boolean, id: string): Look {
-		const icon = image("imgs/actions/scenes/dial") ?? "";
+		const icon = image("imgs/actions/scenes/dial");
 		const text = (value: string, color = "#FFFFFF") => ({ value, color });
 		if (!state) return { feedback: { title: "Scene", value: text("Not running", "#6E7179"), icon } };
 		const pick = this.#picks.get(id);

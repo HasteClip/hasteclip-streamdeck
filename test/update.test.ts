@@ -45,15 +45,18 @@ afterEach(async () => {
 	for (const t of temps.splice(0)) await fs.rm(t, { recursive: true, force: true });
 });
 
-/** A plugin as Stream Deck installs it (in a Plugins folder), at `version`, with or without the release marker. */
-async function installed(version: string, marker = true, parent = "Plugins"): Promise<string> {
+/**
+ * A plugin as Stream Deck installs it (in a Plugins folder), at `version`,
+ * with the release marker (`marker`: what it says), or without one.
+ */
+async function installed(version: string, marker: object | false = { repo: "HasteClip/hasteclip-streamdeck", version }, parent = "Plugins"): Promise<string> {
 	const top = await fs.mkdtemp(path.join(os.tmpdir(), "hc-sd-"));
 	temps.push(top);
 	const dir = path.join(top, parent, `${FOLDER}`);
 	await fs.mkdir(path.join(dir, "bin"), { recursive: true });
 	await fs.writeFile(path.join(dir, "manifest.json"), JSON.stringify({ UUID, Version: `${version}.0` }));
 	await fs.writeFile(path.join(dir, "bin", "plugin.js"), `// ${version}`);
-	if (marker) await fs.writeFile(path.join(dir, "bin", "updates.json"), JSON.stringify({ repo: "HasteClip/hasteclip-streamdeck" }));
+	if (marker) await fs.writeFile(path.join(dir, "bin", "updates.json"), JSON.stringify(marker));
 	return dir;
 }
 
@@ -107,11 +110,21 @@ test("a release's files go in place, nothing left beside them", async () => {
 
 test("only a release build installed by Stream Deck updates itself", async () => {
 	const log = { info: () => {}, warn: () => {} };
-	for (const [marker, parent, on] of [[true, "Plugins", true], [false, "Plugins", false], [true, "hasteclip-streamdeck", false]] as const) {
+	const release = { repo: "HasteClip/hasteclip-streamdeck", version: "0.1.0" };
+	const cases: [object | false, string, boolean][] = [
+		[release, "Plugins", true],
+		// A local build, or the Marketplace's.
+		[false, "Plugins", false],
+		// Linked for development.
+		[release, "hasteclip-streamdeck", false],
+		// A marker that doesn't say its version.
+		[{ repo: release.repo }, "Plugins", false],
+	];
+	for (const [marker, parent, on] of cases) {
 		const updater = new Updater({ dir: await installed("0.1.0", marker, parent), log, busy: () => false });
 		await updater.start();
 		updater.stop();
-		assert.equal(updater.on, on, `marker ${marker}, in ${parent}`);
+		assert.equal(updater.on, on, `marker ${JSON.stringify(marker)}, in ${parent}`);
 	}
 });
 

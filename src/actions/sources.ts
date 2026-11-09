@@ -127,7 +127,7 @@ function dialLook(sound: SoundState | undefined, name: string): Look {
 	const kind = pictures(sound);
 	const off = !sound || !sound.on;
 	const muted = sound?.muted ?? false;
-	const icon = image(`imgs/actions/sound/dial-${kind}${muted ? "-muted" : ""}`) ?? "";
+	const icon = image(`imgs/actions/sound/dial-${kind}${muted ? "-muted" : ""}`);
 	const value = !sound ? "Not running" : !sound.on ? "Off" : muted ? "Muted" : dbText(sound.db);
 	const color = off ? "#6E7179" : muted ? "#FF5050" : "#FFFFFF";
 	const db = sound?.db ?? MIN_DB;

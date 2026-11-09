@@ -13,12 +13,11 @@ import streamDeck, {
 	type WillDisappearEvent,
 } from "@elgato/streamdeck";
 import type { JsonObject, JsonValue } from "@elgato/utils";
-import { readFileSync } from "node:fs";
 
 import { hasteclip, type Reply, type State } from "./hasteclip";
 
-/** What every action keeps: whether its key's title is the user's own. */
-export type Settings = { ownTitle?: boolean };
+/** An action's settings, as Stream Deck keeps them. */
+export type Settings = JsonObject;
 
 /** How a key or dial looks now. */
 export type Look = {
@@ -44,7 +43,7 @@ type Seen<T extends JsonObject> = { action: KeyAction<T> | DialAction<T>; settin
  * An action that shows what HasteClip's doing: each of its keys and dials is
  * drawn again whenever that changes, sending Stream Deck only what changed.
  */
-export abstract class HasteClipAction<T extends JsonObject & Settings = Settings> extends SingletonAction<T> {
+export abstract class HasteClipAction<T extends Settings = Settings> extends SingletonAction<T> {
 	readonly #seen = new Map<string, Seen<T>>();
 	/** The key whose settings are open, if one of this action's is. */
 	#inspected: string | undefined;
@@ -83,22 +82,16 @@ export abstract class HasteClipAction<T extends JsonObject & Settings = Settings
 	}
 
 	/**
-	 * The title was changed in Stream Deck: to words of the user's own (not
-	 * the ones put there here), which are then left alone, or to nothing,
-	 * which puts the action's own words back.
+	 * The title was changed in Stream Deck. Words the user typed stay there
+	 * (Stream Deck doesn't let a plugin replace them). A title cleared shows
+	 * the action's own words again, so they're sent again (only if it has
+	 * any: sending none would come back here as an empty title again).
 	 */
 	override async onTitleParametersDidChange(ev: TitleParametersDidChangeEvent<T>): Promise<void> {
 		const seen = this.#seen.get(ev.action.id);
-		if (!seen || seen.shown.title === undefined) return;
-		const ours = seen.shown.title ?? "";
-		const own = ev.payload.title !== "" && ev.payload.title !== ours;
-		if (own === Boolean(seen.settings.ownTitle)) return;
-		seen.settings = { ...seen.settings, ownTitle: own };
-		await ev.action.setSettings(seen.settings);
-		if (!own) {
-			seen.shown.title = undefined;
-			await this.draw(ev.action.id);
-		}
+		if (!seen || ev.payload.title !== "" || !seen.shown.title) return;
+		seen.shown.title = undefined;
+		await this.draw(ev.action.id);
 	}
 
 	override onPropertyInspectorDidAppear(ev: PropertyInspectorDidAppearEvent<T>): void {
@@ -152,7 +145,7 @@ export abstract class HasteClipAction<T extends JsonObject & Settings = Settings
 					shown.image = look.image ?? null;
 					await action.setImage(look.image);
 				}
-				if (!seen.settings.ownTitle && shown.title !== (look.title ?? null)) {
+				if (shown.title !== (look.title ?? null)) {
 					shown.title = look.title ?? null;
 					await action.setTitle(look.title);
 				}
@@ -187,21 +180,13 @@ export function wanted<T extends JsonObject>(ev: KeyDownEvent<T>): boolean | und
 	return ev.payload.isInMultiAction ? ev.payload.userDesiredState === 1 : undefined;
 }
 
-const images = new Map<string, string>();
-
-/** An image of the plugin's (`imgs/…`, without `.svg`), as code hands it to Stream Deck. */
-export function image(path: string): string | undefined {
-	let data = images.get(path);
-	if (data === undefined) {
-		try {
-			data = `data:image/svg+xml;base64,${readFileSync(new URL(`../${path}.svg`, import.meta.url)).toString("base64")}`;
-		} catch (e) {
-			streamDeck.logger.warn(`No image ${path}: ${e}`);
-			return undefined;
-		}
-		images.set(path, data);
-	}
-	return data;
+/**
+ * An image of the plugin's (`imgs/…`, without `.svg`), by its place in the
+ * plugin's folder. Stream Deck reads it itself: the plugin never reads its
+ * own files, which Elgato's DRM protects in a Marketplace install.
+ */
+export function image(path: string): string {
+	return `${path}.svg`;
 }
 
 /** A time since something started: 0:42, 12:03, 1:02:03. */
