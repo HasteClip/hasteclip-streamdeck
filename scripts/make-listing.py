@@ -49,9 +49,9 @@ p {{ font-size: 34px; color: #A2A4AB; margin: 0; line-height: 1.3; max-width: 56
 .brand {{ display: flex; flex-direction: column; gap: 26px; }}
 .brand img {{ width: 190px; height: 190px; }}
 .words {{ display: flex; flex-direction: column; width: 680px; }}
-.deck {{ display: grid; gap: 22px; padding: 38px; background: #050506; border-radius: 46px;
-  box-shadow: 0 30px 80px rgba(0,0,0,.55), inset 0 0 0 2px #1f2024; }}
-.key {{ position: relative; border-radius: 24px; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(255,255,255,.04); }}
+.deck {{ display: grid; gap: 22px; padding: 38px; background: #18191c; border-radius: 46px;
+  box-shadow: 0 30px 80px rgba(0,0,0,.55), inset 0 0 0 2px #26272b; }}
+.key {{ position: relative; border-radius: 24px; overflow: hidden; background: #000; outline: 1px solid rgba(255,255,255,.07); outline-offset: -1px; }}
 .key img {{ width: 100%; height: 100%; display: block; }}
 .key .title {{ position: absolute; left: 0; right: 0; bottom: 12px; text-align: center; font-weight: 600;
   font-size: 22px; line-height: 1.1; color: #fff; text-shadow: 0 0 3px #000, 0 0 3px #000; }}

@@ -9,9 +9,17 @@ package (MIT). Needs Pillow for the PNGs. Writes into
 com.hasteclip.streamdeck.sdPlugin/imgs.
 
 The keys are SVG, kept to what Stream Deck draws (paths and rectangles, no
-masks or filters). The colours are HasteClip's dark look: green while
-something's on, red while recording or muted, purple while live, the icon
+masks or filters), on black: the deck's own, so a key's picture has no edge
+of its own. What a key's doing is in its icon's colour, HasteClip's: green
+while something's on, red while recording or muted, purple while live,
 faint while the key can't do anything (HasteClip isn't running, say).
+
+The logo's glyph comes from glyph.png: white, its edges only see-through,
+never darkened. (Not tray/ or glyph-icon/: those have a dark keyline or a
+shadow on purpose, for light taskbars and backgrounds, which shows as a
+dark ring round the glyph on a key.) It's laid on with alpha_composite:
+Pillow's paste(image, where, image) blends the see-through itself too, and
+left the edges half see-through and dark, a dark ring round the glyph.
 """
 
 import re
@@ -22,33 +30,33 @@ from PIL import Image
 
 PLUGIN = Path(__file__).resolve().parent.parent / "com.hasteclip.streamdeck.sdPlugin" / "imgs"
 
-BG = "#17181B"
+BLACK = "#000000"
 FG = "#ECECEE"
 FAINT = "#4B4D55"
-GREEN, GREEN_BG = "#3DD68C", "#1F4234"
-RED, RED_BG = "#FF5050", "#4A2427"
-PURPLE, PURPLE_BG = "#A970FF", "#372B4D"
+GREEN = "#3DD68C"
+RED = "#FF5050"
+PURPLE = "#A970FF"
 
-# Each action's pictures: (file, Phosphor icon, colour, background, with a title).
-# A key with a title has its icon higher and smaller, clear of the words.
+# Each action's pictures: (file, Phosphor icon, colour, with a title). A key
+# with a title has its icon higher and smaller, clear of the words.
 KEYS = {
-    "save-clip": [("key", "film-slate", FG, BG, False), ("dim", "film-slate", FAINT, BG, False)],
-    "clipping": [("off", "timer", FG, BG, False), ("on", "timer", GREEN, GREEN_BG, False), ("dim", "timer", FAINT, BG, False)],
-    "recording": [("off", "record", FG, BG, True), ("on", "record", RED, RED_BG, True), ("dim", "record", FAINT, BG, True)],
-    "stream": [("off", "broadcast", FG, BG, True), ("on", "broadcast", PURPLE, PURPLE_BG, True), ("dim", "broadcast", FAINT, BG, True)],
-    "screenshot": [("key", "camera", FG, BG, False), ("dim", "camera", FAINT, BG, False)],
-    "mark": [("key", "bookmark-simple", FG, BG, False), ("dim", "bookmark-simple", FAINT, BG, False)],
-    "scene": [("off", "monitor-play", FG, BG, True), ("on", "monitor-play", GREEN, GREEN_BG, True), ("dim", "monitor-play", FAINT, BG, True)],
-    "scenes": [("key", "monitor-play", FG, BG, True)],
-    "preset": [("off", "stack", FG, BG, True), ("on", "stack", GREEN, GREEN_BG, True), ("dim", "stack", FAINT, BG, True)],
-    "source": [("off", "eye-slash", FG, BG, True), ("on", "eye", GREEN, GREEN_BG, True), ("dim", "eye-slash", FAINT, BG, True)],
+    "save-clip": [("key", "film-slate", FG, False), ("dim", "film-slate", FAINT, False)],
+    "clipping": [("off", "timer", FG, False), ("on", "timer", GREEN, False), ("dim", "timer", FAINT, False)],
+    "recording": [("off", "record", FG, True), ("on", "record", RED, True), ("dim", "record", FAINT, True)],
+    "stream": [("off", "broadcast", FG, True), ("on", "broadcast", PURPLE, True), ("dim", "broadcast", FAINT, True)],
+    "screenshot": [("key", "camera", FG, False), ("dim", "camera", FAINT, False)],
+    "mark": [("key", "bookmark-simple", FG, False), ("dim", "bookmark-simple", FAINT, False)],
+    "scene": [("off", "monitor-play", FG, True), ("on", "monitor-play", GREEN, True), ("dim", "monitor-play", FAINT, True)],
+    "scenes": [("key", "monitor-play", FG, True)],
+    "preset": [("off", "stack", FG, True), ("on", "stack", GREEN, True), ("dim", "stack", FAINT, True)],
+    "source": [("off", "eye-slash", FG, True), ("on", "eye", GREEN, True), ("dim", "eye-slash", FAINT, True)],
     "sound": [
-        ("live", "microphone", FG, BG, True),
-        ("muted", "microphone-slash", RED, RED_BG, True),
-        ("mic-dim", "microphone", FAINT, BG, True),
-        ("speaker", "speaker-high", FG, BG, True),
-        ("speaker-muted", "speaker-x", RED, RED_BG, True),
-        ("speaker-dim", "speaker-high", FAINT, BG, True),
+        ("live", "microphone", FG, True),
+        ("muted", "microphone-slash", RED, True),
+        ("mic-dim", "microphone", FAINT, True),
+        ("speaker", "speaker-high", FG, True),
+        ("speaker-muted", "speaker-x", RED, True),
+        ("speaker-dim", "speaker-high", FAINT, True),
     ],
 }
 
@@ -98,11 +106,11 @@ def write(path: Path, svg: str) -> None:
     path.write_text(svg + "\n", encoding="utf-8", newline="\n")
 
 
-def key(phosphor: Path, name: str, colour: str, background: str, titled: bool) -> str:
+def key(phosphor: Path, name: str, colour: str, titled: bool) -> str:
     # 144 x 144 (a key at 2x). Titled: a 60 px icon high up, else 72 px in the middle.
     x, y, size = (42, 22, 60) if titled else (36, 36, 72)
     body = icon(phosphor, name, colour, x, y, size)
-    return f'<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144"><rect width="144" height="144" fill="{background}"/>{body}</svg>'
+    return f'<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144"><rect width="144" height="144" fill="{BLACK}"/>{body}</svg>'
 
 
 def dial(phosphor: Path, name: str, colour: str) -> str:
@@ -117,15 +125,17 @@ def listed(phosphor: Path, name: str) -> str:
 
 
 def fitted(image: Image.Image, size: int, margin: float) -> Image.Image:
-    """`image`'s drawn part, as big as fits in a `size` square with `margin` (a fraction) round it."""
+    """`image`'s drawn part, as big as fits in a `size` square with `margin`
+    (a fraction) round it, on transparent."""
     image = image.convert("RGBA")
-    box = image.getbbox()
-    part = image.crop(box)
+    part = image.crop(image.getbbox())
     room = round(size * (1 - 2 * margin))
     scale = room / max(part.width, part.height)
+    # Pillow scales an RGBA picture with its colours weighted by how solid
+    # they are, so the see-through edges stay the glyph's white.
     part = part.resize((max(1, round(part.width * scale)), max(1, round(part.height * scale))), Image.LANCZOS)
     out = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    out.paste(part, ((size - part.width) // 2, (size - part.height) // 2), part)
+    out.alpha_composite(part, ((size - part.width) // 2, (size - part.height) // 2))
     return out
 
 
@@ -144,8 +154,8 @@ def main() -> None:
         sys.exit(__doc__)
     phosphor, assets = Path(sys.argv[1]), Path(sys.argv[2])
     for action, looks in KEYS.items():
-        for file, name, colour, background, titled in looks:
-            write(PLUGIN / "actions" / action / f"{file}.svg", key(phosphor, name, colour, background, titled))
+        for file, name, colour, titled in looks:
+            write(PLUGIN / "actions" / action / f"{file}.svg", key(phosphor, name, colour, titled))
     for action, looks in DIALS.items():
         for file, name, colour in looks:
             write(PLUGIN / "actions" / action / f"{file}.svg", dial(phosphor, name, colour))
@@ -166,10 +176,9 @@ def main() -> None:
     for size, suffix in ((20, ""), (40, "@2x")):
         fitted(glyph, size, 0.02).save(open_dir / f"icon{suffix}.png")
     for size, suffix in ((72, ""), (144, "@2x")):
-        plate = Image.new("RGBA", (size, size), BG)
-        mark = fitted(glyph, size, 0.22)
-        plate.paste(mark, (0, 0), mark)
-        plate.save(open_dir / f"key{suffix}.png")
+        plate = Image.new("RGBA", (size, size), (0, 0, 0, 255))
+        plate.alpha_composite(fitted(glyph, size, 0.22))
+        plate.convert("RGB").save(open_dir / f"key{suffix}.png")
 
 
 if __name__ == "__main__":
