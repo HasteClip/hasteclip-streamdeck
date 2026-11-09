@@ -122,14 +122,13 @@ def main() -> None:
                 "--allow-file-access-from-files", "--virtual-time-budget=3000", f"--screenshot={out}", html.as_uri(),
             ], check=True, capture_output=True, timeout=120)
             print(out.name, Image.open(out).size)
-    # The app icon: HasteClip's, as its product's picture.
-    icon = Image.open(assets / "icon-1024.png").convert("RGBA")
-    box = icon.getbbox()
-    part = icon.crop(box)
-    side = max(part.width, part.height)
-    square = Image.new("RGBA", (side, side), (0, 0, 0, 0))
-    square.paste(part, ((side - part.width) // 2, (side - part.height) // 2))
-    square.resize((288, 288), Image.LANCZOS).save(OUT / "icon.png")
+    # The app icon: HasteClip's black plate to the edges, the glyph where
+    # HasteClip's own icon has it (824 px, 100 in, in icon-1024.png). The
+    # Marketplace rounds its corners itself, by a quarter: an icon rounded
+    # already, with a shadow, showed as a smaller tile inside its tile.
+    square = Image.new("RGBA", (824, 824), (0, 0, 0, 255))
+    square.alpha_composite(Image.open(assets / "icon-1024.png").convert("RGBA").crop((100, 100, 924, 924)))
+    square.convert("RGB").resize((288, 288), Image.LANCZOS).save(OUT / "icon.png")
     print("icon.png", Image.open(OUT / "icon.png").size)
 
 

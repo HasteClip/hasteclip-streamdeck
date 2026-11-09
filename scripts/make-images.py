@@ -129,6 +129,16 @@ def fitted(image: Image.Image, size: int, margin: float) -> Image.Image:
     return out
 
 
+def square_icon(app: Image.Image, size: int) -> Image.Image:
+    """HasteClip's app icon as a full square: its black plate to the edges
+    (824 px, 100 in, in icon-1024.png), the glyph where the icon has it. No
+    rounding or shadow: Stream Deck and the Marketplace round the corners
+    themselves (the Marketplace by a quarter), as Elgato's template expects."""
+    square = Image.new("RGBA", (824, 824), (0, 0, 0, 255))
+    square.alpha_composite(app.convert("RGBA").crop((100, 100, 924, 924)))
+    return square.resize((size, size), Image.LANCZOS)
+
+
 def main() -> None:
     if len(sys.argv) != 3:
         sys.exit(__doc__)
@@ -148,7 +158,7 @@ def main() -> None:
     glyph = Image.open(assets / "glyph.png")
     (PLUGIN / "plugin").mkdir(parents=True, exist_ok=True)
     for size, suffix in ((256, ""), (512, "@2x")):
-        fitted(app, size, 0.04).save(PLUGIN / "plugin" / f"marketplace{suffix}.png")
+        square_icon(app, size).save(PLUGIN / "plugin" / f"marketplace{suffix}.png")
     for size, suffix in ((28, ""), (56, "@2x")):
         fitted(glyph, size, 0.04).save(PLUGIN / "plugin" / f"category-icon{suffix}.png")
     open_dir = PLUGIN / "actions" / "open"
