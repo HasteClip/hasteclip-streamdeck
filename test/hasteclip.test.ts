@@ -32,6 +32,8 @@ class FakeHasteClip {
 	answer: (request: Record<string, unknown>) => Record<string, unknown> | undefined = (r) => ({ reply: r.id, ok: true });
 	/** A HasteClip from before control: reads the word, and lets go. */
 	old = false;
+	/** As HasteClip 0.8.0 on Windows: lets a client go that's said nothing for this long. */
+	quietMs: number | undefined = undefined;
 
 	constructor() {
 		this.server = net.createServer((socket) => this.#serve(socket));
@@ -56,8 +58,14 @@ class FakeHasteClip {
 		socket.on("error", () => {});
 		let buffer = "";
 		let word = false;
+		let quiet: NodeJS.Timeout | undefined;
+		socket.on("close", () => clearTimeout(quiet));
 		socket.setEncoding("utf8");
 		socket.on("data", (chunk: string) => {
+			if (this.quietMs !== undefined) {
+				clearTimeout(quiet);
+				quiet = setTimeout(() => socket.destroy(), this.quietMs);
+			}
 			buffer += chunk;
 			if (!word) {
 				if (buffer.length < 4) return;
@@ -70,8 +78,11 @@ class FakeHasteClip {
 				}
 			}
 			for (let end = buffer.indexOf("\n"); end >= 0; end = buffer.indexOf("\n")) {
-				const message = JSON.parse(buffer.slice(0, end));
+				const text = buffer.slice(0, end).trim();
 				buffer = buffer.slice(end + 1);
+				// Empty lines are skipped, as HasteClip skips them.
+				if (!text) continue;
+				const message = JSON.parse(text);
 				this.heard.push(message);
 				if ("hello" in message) {
 					socket.write(`${JSON.stringify({ hello: 1, app: "HasteClip", version: "9.9.9" })}\n`);
@@ -173,6 +184,31 @@ test("a HasteClip from before control needs an update", async () => {
 	assert.ok(hasteclip.tooOld);
 	assert.deepEqual(await hasteclip.ask({ do: "save_clip" }), { ok: false, why: "HasteClip needs an update" });
 	assert.ok(lines.some((l) => l.includes("update")));
+});
+
+test("a HasteClip that lets a quiet client go (0.8.0 on Windows) keeps it, with the empty lines", async () => {
+	// Quiet past 300 ms, let go of; an empty line every 100 ms.
+	const { fake, hasteclip } = await connected({ beatMs: 100 });
+	for (const socket of fake.clients) socket.emit("data", "");
+	fake.quietMs = 300;
+	// Its quiet timer starts with what it hears next.
+	for (const socket of fake.clients) socket.emit("data", "");
+	let gone = 0;
+	hasteclip.onState((state) => {
+		if (state === undefined) gone++;
+	});
+	await new Promise((r) => setTimeout(r, 1200));
+	assert.equal(gone, 0, "let go of");
+	assert.deepEqual(hasteclip.state, STATE);
+	assert.ok(fake.heard.length >= 1);
+});
+
+test("without the empty lines, that HasteClip lets it go (what the empty lines are for)", async () => {
+	const { fake, hasteclip } = await connected({ beatMs: 60_000 });
+	fake.quietMs = 300;
+	for (const socket of fake.clients) socket.emit("data", "");
+	const gone = nextState(hasteclip);
+	assert.equal(await gone, undefined);
 });
 
 test("something else on the port that never says hello is let go of", async () => {

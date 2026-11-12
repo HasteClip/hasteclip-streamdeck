@@ -76,6 +76,8 @@ export type Options = {
 	helloMs?: number;
 	/** Longest wait between tries while HasteClip isn't running. */
 	retryMs?: number;
+	/** How often an empty line is sent while connected (see `#beat`). */
+	beatMs?: number;
 };
 
 export class HasteClip {
@@ -106,6 +108,15 @@ export class HasteClip {
 	#tries = 0;
 	#helloTimer: NodeJS.Timeout | undefined = undefined;
 	#running = false;
+	#beatMs: number;
+	/**
+	 * An empty line, every couple of seconds while connected. HasteClip
+	 * 0.8.0 on Windows lets a connection go that's said nothing for 5
+	 * seconds (and a deck says nothing until a key's pressed): its keys went
+	 * faint every 5 seconds. HasteClip skips empty lines, and hearing one
+	 * keeps it listening. Later versions don't need it.
+	 */
+	#beat: NodeJS.Timeout | undefined = undefined;
 
 	constructor(options: Options = {}) {
 		this.#port = options.port ?? PORT;
@@ -114,6 +125,7 @@ export class HasteClip {
 		this.#replyMs = options.replyMs ?? 8000;
 		this.#helloMs = options.helloMs ?? 5000;
 		this.#retryMs = options.retryMs ?? 5000;
+		this.#beatMs = options.beatMs ?? 2000;
 	}
 
 	/** Connect, and keep connecting whenever HasteClip runs. */
@@ -204,6 +216,12 @@ export class HasteClip {
 			this.tooOld = false;
 			this.version = typeof message.version === "string" ? message.version : undefined;
 			this.log.info(`Connected to HasteClip ${this.version ?? ""}`.trim());
+			const socket = this.#socket;
+			clearInterval(this.#beat);
+			this.#beat = setInterval(() => {
+				if (socket?.writable) socket.write("\n");
+			}, this.#beatMs);
+			this.#beat.unref();
 		} else if ("state" in message && this.#hello) {
 			this.state = message.state as State;
 			this.#tell();
@@ -219,6 +237,7 @@ export class HasteClip {
 	#closed(socket: net.Socket): void {
 		if (socket !== this.#socket) return;
 		clearTimeout(this.#helloTimer);
+		clearInterval(this.#beat);
 		// Connected, and let go of without a hello: a HasteClip from before
 		// control (or something else on its port).
 		if (this.#connected && !this.#hello && !this.tooOld) {
