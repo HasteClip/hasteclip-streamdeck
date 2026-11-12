@@ -141,7 +141,10 @@ the keys come back to life as soon as HasteClip starts.
   [Phosphor](https://phosphoricons.com) icons HasteClip uses and from
   HasteClip's logo.
 - `scripts/make-listing.py`: draws the Marketplace listing's pictures into
-  `marketplace/` (Chrome draws them headless, in HasteClip's font).
+  `marketplace/`. The plugin's keys go onto Elgato's own devices, from its
+  official Stream Deck Templates Figma file, which are kept outside this
+  repository (`marketplace/listing.md` says how to export them). Chrome
+  draws the pictures headless, in HasteClip's font.
 - `npm run validate` checks the plugin the way Elgato's Marketplace does.
 
 ## License

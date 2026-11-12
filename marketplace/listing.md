@@ -4,45 +4,56 @@ What goes into Maker Console for the plugin, following Elgato's
 [product guidelines](https://docs.elgato.com/guidelines/products) and
 [plugin guidelines](https://docs.elgato.com/guidelines/stream-deck/plugins).
 
-## Before submitting
+## Resubmitting (after the first review)
 
-- [ ] HasteClip with Stream Deck support is released (HasteClip/hasteclip#54
-      merged and in a release). Put its version in the description's last
-      line. Reviewers try the plugin, and against an older HasteClip its keys
-      stay faint.
-- [ ] The plugin's next version is released (`npm version minor`, then
-      `git push --follow-tags`). The run of the release workflow keeps the
-      Marketplace build as **marketplace**: upload that file. Don't upload
-      the one on the GitHub release, which updates itself from GitHub.
-- [ ] Decide the product name. It **can't be changed** once submitted.
-      Neither can the plugin's id, `com.hasteclip.streamdeck`, once it's
-      published.
+The first submission (0.2.0) was turned down with three requests, and each is
+answered here:
+
+- [ ] **A fuller description:** what it does, how it works, and what's
+      included. See [Description](#description).
+- [ ] **Official pictures of the hardware:** the pictures now use Elgato's
+      own devices from its "Stream Deck Templates" Figma file. See
+      [Pictures](#pictures).
+- [ ] **A short demo video, emailed to maker@elgato.com:** reply to their
+      email with it. See [Demo video](#demo-video).
+
+Then, in Maker Console, open Products, the plugin, then the Versions tab.
+Pick the rejected version and upload the revised file: the Marketplace build
+of 0.2.1 or later. It's the **marketplace** file on the release workflow's
+run. Don't upload the file on the GitHub release, which updates itself from
+GitHub. Update the description and the pictures, then submit.
 
 ## Product name
 
 **HasteClip Plugin** (16 characters). Plugin names have to say what they
 are, as in Elgato's "Photoshop Plugin". "HasteClip for Stream Deck" would
-also fit in 30 characters.
+also fit in 30 characters. The name can't be changed once submitted, and
+neither can the plugin's id, `com.hasteclip.streamdeck`, once it's published.
 
 ## Description
 
-The first 250 characters count most and should be plain text:
+1,359 characters, of 1,500. The first 250 are plain text, saying what it is
+and who it's for:
 
-> Control HasteClip, the free clip recorder, from your Stream Deck. Save a
-> clip the moment something happens, start and stop clipping, recording and
-> streaming, switch scenes and presets, show or hide your webcam, and mute
-> your mic or hold a key to talk.
->
-> The keys light up with what HasteClip is doing: green while clipping, red
-> while recording, purple while live, with how long it's been going. Scene,
-> preset, source and sound keys take their names from HasteClip and follow
-> it when you rename things. On Stream Deck +, turn a dial to pick a scene
-> and push it to show it, or turn a sound up and down.
->
-> Requires HasteClip 0.8 or later, running on the same computer. HasteClip
-> is free for Windows and macOS at hasteclip.com.
+```
+Control HasteClip, the free clip recorder, from your Stream Deck. HasteClip keeps the last minutes of your game ready to save, like a replay buffer. With this plugin you save a clip the moment something happens, switch scenes and mute your mic without leaving the game.
 
-(About 830 characters; the limit is 1,500.)
+What's included:
+- Save clip, Screenshot and Mark moment (marks a moment in a recording)
+- Clipping, Recording and Stream: start and stop them
+- Scene: show a scene, or the next or previous one, live while recording
+- Preset: switch HasteClip's preset
+- Show or hide source: your webcam, a display, an image or a web page
+- Sound: mute your mic, your computer's sound or an app, or hold a key to talk
+- Open HasteClip
+- Stream Deck +: turn a dial to change a sound's volume, or to pick a scene
+
+How it works: the plugin talks to HasteClip on the same computer, with no account and nothing sent over the internet. The keys show what HasteClip is doing: green while clipping, red while recording, purple while live, with how long it's been going. Scene, source and sound keys take their names from HasteClip.
+
+Requirements: HasteClip 0.8 or later (free at hasteclip.com) on the same computer, Windows 10 or later or macOS 13 or later, and Stream Deck 6.9 or later.
+
+Setup: start HasteClip, drag the HasteClip actions onto your keys, and pick a scene, source or sound in each key's settings.
+```
 
 ## Pricing
 
@@ -67,16 +78,54 @@ on the same computer and collects nothing.
 In this folder, made by `scripts/make-listing.py`:
 
 - App icon: `icon.png` (288 × 288)
-- Thumbnail: `thumbnail.png` (1920 × 960)
-- Gallery: `gallery-1-capture.png`, `gallery-2-scenes.png`,
-  `gallery-3-sound.png` (1920 × 960)
+- Thumbnail: `thumbnail.png` (1920 × 960), on a Stream Deck MK.2
+- Gallery (1920 × 960):
+  - `gallery-1-capture.png`, on a Stream Deck Mini
+  - `gallery-2-scenes.png`, on a Stream Deck Mini
+  - `gallery-3-sound.png`, on a Stream Deck +, with the dials' layouts on
+    its touch strip
 
-They're mock-ups made from the plugin's own key pictures. Photos or
-screenshots of a real deck running it would show it better (the guidelines
-ask that devices are shown accurately), up to 10 gallery items, or a video
-(1920 × 1080 MP4, under 250 MB).
+The hardware is Elgato's own, from its official
+[Stream Deck Templates](https://www.figma.com/community/file/1315040482142393672/stream-deck-templates)
+Figma file. Each device is exported as SVG with "Include id attribute", and
+kept outside this repository because they're Elgato's files. The keys show
+the plugin's real key pictures and titles, under Elgato's bevel and
+reflections. To draw the pictures again:
 
-## Release notes (first version)
+```sh
+python scripts/make-listing.py <chrome.exe> <HasteClip's crates/app/assets> <folder with the device SVGs>
+```
+
+## Demo video
+
+Their review page asks for one from plugins that need hardware or a paid
+service, and the reviewer asked for one here too. Record it with HasteClip
+itself, in one take of 1 to 3 minutes: its screen, with a webcam (or a phone)
+on the deck. Show:
+
+1. The HasteClip actions in Stream Deck's list.
+2. Clipping on: the key turns green, and HasteClip shows it's clipping.
+3. Save clip: a tick on the key, and the clip in Clips.
+4. Recording on and off: the time on the key, then the saved recording.
+5. Scene keys switching HasteClip's scene.
+6. Show or hide source: the eye on the Sources page follows.
+7. Mute and push to talk: the key turns red, and HasteClip's mixer shows it.
+8. Quit HasteClip: the keys go faint. Start it again: they come back.
+9. With a Stream Deck +: the volume dial and the scene dial.
+
+Reply to their email with a link that plays in a browser, such as one from
+HasteClip's own Share with a link, or an unlisted YouTube video. Include the
+plugin's name, its id (`com.hasteclip.streamdeck`) and its version.
+
+## Release notes
+
+For the revision (0.2.1):
+
+> The keys stay connected to HasteClip 0.8.0 on Windows (they went faint
+> for a moment every 5 seconds). Keys are on black, and HasteClip's logo is
+> drawn cleanly.
+
+For the first version (0.2.0):
 
 > HasteClip on your Stream Deck: save clips, clipping, recording and
 > streaming keys that show what HasteClip is doing, scenes and presets,

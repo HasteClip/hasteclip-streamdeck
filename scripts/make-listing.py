@@ -1,17 +1,35 @@
 """Draw the Marketplace listing's pictures into marketplace/: the app icon
 (288 x 288), the thumbnail and three gallery pictures (1920 x 960 PNG, as
-Elgato's product guidelines ask). They're mock-ups made from the plugin's
-own key pictures; photos of a real deck would be better.
+Elgato's product guidelines ask).
 
-    python scripts/make-listing.py <chrome.exe> <HasteClip's crates/app/assets>
+    python scripts/make-listing.py <chrome.exe> <HasteClip's crates/app/assets> <devices folder>
+
+<devices folder> holds Elgato's own pictures of the hardware, from its
+official "Stream Deck Templates" Figma file, each device exported as SVG
+with its layers' names as ids: "Stream Deck MK.2.svg", "Stream Deck
+Mini.svg" and "Stream Deck +.svg". They're Elgato's, so they're not in this
+repository. The Marketplace asks for its hardware to be shown with them.
+
+Each key shows what it shows on the deck: the plugin's own key pictures
+(imgs/), put into the key's "Content" layer, under Elgato's bevel and
+reflections, with the title Stream Deck draws. The Stream Deck +'s touch
+strip shows the dials' layouts as the plugin fills them. Two things in the
+exports are changed so Chrome draws them as Figma does: the bevel's
+background blur (an HTML element in the SVG, which would blur the whole
+key) is left out, and the reflections' shapes are made solid. They were 1%
+opaque, which made their inner glints cover the whole key; they're blended
+with "screen", where black changes nothing.
 
 The pictures are pages drawn by Chrome, headless (with a profile of its own,
 so it never touches yours), in HasteClip's font, Hanken Grotesk.
 """
 
+import base64
+import re
 import subprocess
 import sys
 import tempfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from PIL import Image
@@ -20,20 +38,103 @@ ROOT = Path(__file__).resolve().parent.parent
 IMGS = ROOT / "com.hasteclip.streamdeck.sdPlugin" / "imgs" / "actions"
 OUT = ROOT / "marketplace"
 
+SVG = "http://www.w3.org/2000/svg"
+NS = "{" + SVG + "}"
+ET.register_namespace("", SVG)
+ET.register_namespace("xlink", "http://www.w3.org/1999/xlink")
 
-def key(image: str, title: str = "", size: int = 168) -> str:
-    """A key: its picture, and its title at the bottom as Stream Deck draws it."""
-    src = (IMGS / image).as_uri()
-    words = title.replace("\n", "<br>")
-    return (
-        f'<div class="key" style="width:{size}px;height:{size}px">'
-        f'<img src="{src}"><div class="title">{words}</div></div>'
-    )
+# How Stream Deck draws a key's title: white, bold, outlined in black, at
+# the bottom. (In the key pictures' own 144 x 144.)
+TITLE = 'font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="18" fill="#fff" stroke="#000" stroke-width="3" stroke-linejoin="round" paint-order="stroke" text-anchor="middle"'
 
 
-def deck(keys: list[str], columns: int = 5) -> str:
-    """A deck with these keys, in rows of `columns`."""
-    return f'<div class="deck" style="grid-template-columns:repeat({columns},auto)">{"".join(keys)}</div>'
+def key_picture(name: str, title: str = "") -> list[ET.Element]:
+    """A key's picture (`<action>/<file>` in imgs/) and its title, in 144 x 144."""
+    path = IMGS / name
+    if path.suffix == ".svg":
+        out = list(ET.fromstring(path.read_text(encoding="utf-8")))
+    else:
+        data = base64.b64encode(path.read_bytes()).decode()
+        out = [ET.Element(NS + "image", {"width": "144", "height": "144", "href": f"data:image/png;base64,{data}"})]
+    lines = title.split("\n") if title else []
+    for i, words in enumerate(lines):
+        y = 134 - 19 * (len(lines) - 1 - i)
+        text = ET.fromstring(f'<text xmlns="{SVG}" x="72" y="{y}" {TITLE}></text>')
+        text.text = words
+        out.append(text)
+    return out
+
+
+def number(content: ET.Element) -> int:
+    """A Content layer's key: "Content" is key 1, "Content_2" key 2."""
+    m = re.fullmatch(r"Content(?:_(\d+))?", content.get("id") or "")
+    return int(m.group(1) or 1) if m else 0
+
+
+def device(path: Path, keys: list[tuple[str, str]], width: int, strip: list[dict] | None = None) -> str:
+    """Elgato's device, `width` px wide, its keys showing `keys` (picture,
+    title) in order, and its touch strip (Stream Deck +) showing `strip`."""
+    root = ET.parse(path).getroot()
+    parents = {child: parent for parent in root.iter() for child in parent}
+    for el in list(root.iter(NS + "foreignObject")):
+        parents[el].remove(el)
+    for g in root.iter(NS + "g"):
+        if "mix-blend-mode:screen" in (g.get("style") or ""):
+            for shape in g.iter():
+                if shape.get("fill-opacity") == "0.01":
+                    shape.set("fill-opacity", "1")
+    # The MK.2's middle key has a ridge: in Elgato's photos a faint, clear
+    # oval you read the title through. Chrome draws the template's as a grey
+    # disc: faint, as on the deck.
+    for g in root.iter(NS + "g"):
+        if g.get("id") == "Ridge":
+            g.set("opacity", "0.3")
+    # Each filter's area, wider: Chrome cuts a filter's steps off at its
+    # area, and the reflections' inner glints (a shape grown, then moved)
+    # were cut into wide bands down the keys' sides.
+    for f in root.iter(NS + "filter"):
+        if f.get("filterUnits") == "userSpaceOnUse":
+            for k, d in (("x", -48), ("y", -48), ("width", 96), ("height", 96)):
+                f.set(k, f"{float(f.get(k)) + d:g}")
+    contents = sorted((g for g in root.iter(NS + "g") if number(g)), key=number)
+    if len(keys) != len(contents):
+        sys.exit(f"{path.name} has {len(contents)} keys, not {len(keys)}")
+    for content, (picture, title) in zip(contents, keys):
+        shape = content.find(NS + "rect")
+        x, y = re.search(r"translate\(([\d.]+) ([\d.]+)\)", shape.get("transform")).groups()
+        size = shape.get("width")
+        content.remove(shape)
+        nested = ET.SubElement(content, NS + "svg", {"x": x, "y": y, "width": size, "height": size, "viewBox": "0 0 144 144"})
+        nested.extend(key_picture(picture, title))
+    if strip:
+        touch_strip(root, strip)
+    vw, vh = (float(v) for v in root.get("viewBox").split()[2:])
+    root.set("width", str(width))
+    root.set("height", str(round(width * vh / vw)))
+    return ET.tostring(root, encoding="unicode")
+
+
+def touch_strip(root: ET.Element, panels: list[dict]) -> None:
+    """The Stream Deck +'s touch strip: 800 x 100 pixels across its glass,
+    a 200 x 100 layout over each dial ($A1 or $B1, as the plugin uses)."""
+    glass = next(el for el in root.iter(NS + "image") if el.get("width") == "896")
+    gx, gy, gw, gh = (float(glass.get(k)) for k in ("x", "y", "width", "height"))
+    scale = (gw - 32) / 800
+    left, top = gx + 16, gy + (gh - 100 * scale) / 2
+    group = ET.Element(NS + "g")
+    for i, panel in enumerate(panels):
+        g = ET.SubElement(group, NS + "g", {"transform": f"translate({left + i * 200 * scale:g} {top:g}) scale({scale:g})"})
+        title = ET.SubElement(g, NS + "text", {"x": "16", "y": "28", "font-family": "Arial, Helvetica, sans-serif", "font-size": "15", "font-weight": "700", "fill": "#fff"})
+        title.text = panel["title"]
+        icon = ET.SubElement(g, NS + "svg", {"x": "16", "y": "40", "width": "48", "height": "48", "viewBox": "0 0 96 96"})
+        icon.extend(ET.fromstring((IMGS / panel["icon"]).read_text(encoding="utf-8")))
+        value = ET.SubElement(g, NS + "text", {"x": "184", "y": "63", "text-anchor": "end", "font-family": "Arial, Helvetica, sans-serif", "font-size": "17", "fill": panel.get("colour", "#fff")})
+        value.text = panel["value"]
+        if "bar" in panel:
+            ET.SubElement(g, NS + "rect", {"x": "76", "y": "74", "width": "108", "height": "12", "rx": "2", "fill": "#2b2c30"})
+            ET.SubElement(g, NS + "rect", {"x": "76", "y": "74", "width": f"{108 * panel['bar']:g}", "height": "12", "rx": "2", "fill": panel.get("bar_colour", "#3DD68C")})
+    parent = next(p for p in root.iter() if glass in list(p))
+    parent.insert(list(parent).index(glass) + 1, group)
 
 
 def page(body: str, assets: Path) -> str:
@@ -42,85 +143,73 @@ def page(body: str, assets: Path) -> str:
 @font-face {{ font-family: Hanken; src: url("{font}"); }}
 html, body {{ margin: 0; width: 1920px; height: 960px; overflow: hidden; }}
 body {{ background: radial-gradient(circle at 28% 30%, #23252b 0, #141518 55%, #0e0f11 100%); color: #ECECEE;
-  font-family: Hanken, sans-serif; display: flex; align-items: center; justify-content: center; gap: 110px; }}
+  font-family: Hanken, sans-serif; display: flex; align-items: center; justify-content: center; gap: 120px; }}
 h1 {{ font-size: 92px; font-weight: 700; margin: 0; letter-spacing: -1.5px; line-height: 1.02; }}
-h2 {{ font-size: 64px; font-weight: 700; margin: 0 0 18px; letter-spacing: -1px; line-height: 1.05; }}
-p {{ font-size: 34px; color: #A2A4AB; margin: 0; line-height: 1.3; max-width: 560px; }}
+h2 {{ font-size: 64px; font-weight: 700; margin: 0 0 18px; letter-spacing: -1px; line-height: 1.05; text-wrap: balance; }}
+p {{ font-size: 34px; color: #A2A4AB; margin: 0; line-height: 1.3; max-width: 600px; text-wrap: pretty; }}
 .brand {{ display: flex; flex-direction: column; gap: 26px; }}
 .brand img {{ width: 190px; height: 190px; }}
 .words {{ display: flex; flex-direction: column; width: 680px; }}
-.deck {{ display: grid; gap: 22px; padding: 38px; background: #18191c; border-radius: 46px;
-  box-shadow: 0 30px 80px rgba(0,0,0,.55), inset 0 0 0 2px #26272b; }}
-.key {{ position: relative; border-radius: 24px; overflow: hidden; background: #000; outline: 1px solid rgba(255,255,255,.07); outline-offset: -1px; }}
-.key img {{ width: 100%; height: 100%; display: block; }}
-.key .title {{ position: absolute; left: 0; right: 0; bottom: 12px; text-align: center; font-weight: 600;
-  font-size: 22px; line-height: 1.1; color: #fff; text-shadow: 0 0 3px #000, 0 0 3px #000; }}
-.strip {{ display: flex; gap: 0; background: #050506; border-radius: 30px; padding: 26px; box-shadow: 0 30px 80px rgba(0,0,0,.55), inset 0 0 0 2px #1f2024; }}
-.panel {{ width: 300px; height: 150px; position: relative; border-right: 2px solid #1b1c20; }}
-.panel:last-child {{ border-right: 0; }}
-.panel .t {{ position: absolute; left: 24px; top: 14px; font-size: 22px; font-weight: 600; }}
-.panel img {{ position: absolute; left: 24px; top: 58px; width: 72px; height: 72px; }}
-.panel .v {{ position: absolute; left: 114px; top: 66px; font-size: 22px; }}
-.panel .bar {{ position: absolute; left: 114px; top: 106px; width: 160px; height: 16px; background: #2a2b30; border-radius: 8px; overflow: hidden; }}
-.panel .bar i {{ display: block; height: 100%; background: #3DD68C; }}
-.column {{ display: flex; flex-direction: column; gap: 44px; align-items: center; }}
+svg {{ display: block; filter: drop-shadow(0 40px 60px rgba(0,0,0,.45)); }}
 </style></head><body>{body}</body></html>"""
 
 
-def pictures(assets: Path) -> dict[str, str]:
+def pictures(assets: Path, devices: Path) -> dict[str, str]:
     logo = (assets / "icon-1024.png").as_uri()
-    next_scene = "Next\nscene"
+    mk2, mini, plus = devices / "Stream Deck MK.2.svg", devices / "Stream Deck Mini.svg", devices / "Stream Deck +.svg"
     thumbnail = f"""
 <div class="brand"><img src="{logo}"><h1>HasteClip<br>for Stream Deck</h1>
 <p>Save clips, switch scenes and mute your mic without leaving the game.</p></div>
-{deck([
-    key("save-clip/key.svg"), key("clipping/on.svg"), key("recording/off.svg"), key("stream/off.svg"), key("screenshot/key.svg"),
-    key("scene/on.svg", "Gameplay"), key("scene/off.svg", "Just chatting"), key("source/on.svg", "Webcam"), key("mark/key.svg"), key("preset/on.svg", "Clipping"),
-    key("sound/live.svg", "Microphone"), key("sound/speaker-muted.svg", "Desktop"), key("sound/speaker.svg", "Game"), key("scene/off.svg", next_scene), key("open/key@2x.png"),
-])}"""
+{device(mk2, [
+    ("save-clip/key.svg", ""), ("clipping/on.svg", ""), ("recording/off.svg", ""), ("stream/off.svg", ""), ("screenshot/key.svg", ""),
+    # The middle key has the MK.2's ridge: one without a title.
+    ("scene/on.svg", "Gameplay"), ("scene/off.svg", "Chatting"), ("mark/key.svg", ""), ("source/on.svg", "Webcam"), ("preset/on.svg", "Clipping"),
+    ("sound/live.svg", "Mic"), ("sound/speaker-muted.svg", "Desktop"), ("sound/speaker.svg", "Game"), ("scene/off.svg", "Next\nscene"), ("open/key@2x.png", ""),
+], 980)}"""
     capture = f"""
 <div class="words"><h2>Clip, record and go live</h2>
-<p>Save a clip the moment it happens. The keys light up while HasteClip clips, records or streams, with the time it's been going.</p></div>
-{deck([
-    key("save-clip/key.svg", "", 200), key("clipping/on.svg", "", 200), key("recording/on.svg", "12:03", 200),
-    key("stream/on.svg", "1:02:03", 200), key("screenshot/key.svg", "", 200), key("mark/key.svg", "", 200),
-], 3)}"""
+<p>The keys light up while HasteClip clips, records or streams, with how long it's been going.</p></div>
+{device(mini, [
+    ("save-clip/key.svg", ""), ("clipping/on.svg", ""), ("recording/on.svg", "12:03"),
+    ("stream/on.svg", "1:02:03"), ("screenshot/key.svg", ""), ("mark/key.svg", ""),
+], 860)}"""
     scenes = f"""
 <div class="words"><h2>Scenes, presets and sources</h2>
-<p>Switch scenes live, change presets, and show or hide your webcam and other sources. Names follow HasteClip.</p></div>
-{deck([
-    key("scene/on.svg", "Gameplay", 200), key("scene/off.svg", "Just chatting", 200), key("scene/off.svg", next_scene, 200),
-    key("preset/on.svg", "Clipping", 200), key("source/on.svg", "Webcam", 200), key("source/off.svg", "Chat", 200),
-], 3)}"""
-    mic = (IMGS / "sound" / "dial-mic.svg").as_uri()
-    monitor = (IMGS / "scenes" / "dial.svg").as_uri()
+<p>Switch scenes live, change presets, and show or hide your webcam. Names follow HasteClip.</p></div>
+{device(mini, [
+    ("scene/on.svg", "Gameplay"), ("scene/off.svg", "Chatting"), ("scene/off.svg", "Next\nscene"),
+    ("preset/on.svg", "Clipping"), ("source/on.svg", "Webcam"), ("source/off.svg", "Chat"),
+], 860)}"""
     sound = f"""
 <div class="words"><h2>Mute, talk, turn it up</h2>
-<p>Mute or unmute any sound, hold a key to talk, and on Stream Deck + turn a dial for its volume.</p></div>
-<div class="column">
-{deck([key("sound/live.svg", "Microphone", 190), key("sound/muted.svg", "Microphone", 190), key("sound/speaker.svg", "Desktop", 190), key("sound/speaker-muted.svg", "Music", 190)], 4)}
-<div class="strip">
-<div class="panel"><div class="t">Microphone</div><img src="{mic}"><div class="v">−3.0 dB</div><div class="bar"><i style="width:79%"></i></div></div>
-<div class="panel"><div class="t">Push to show</div><img src="{monitor}"><div class="v" style="color:#F2B544">Just chatting</div></div>
-</div></div>"""
+<p>Mute any sound or hold a key to talk. On Stream Deck +, turn a dial for its volume or to pick a scene.</p></div>
+{device(plus, [
+    ("sound/live.svg", "Mic"), ("sound/speaker.svg", "Desktop"), ("sound/speaker.svg", "Game"), ("sound/speaker-muted.svg", "Music"),
+    ("clipping/on.svg", ""), ("save-clip/key.svg", ""), ("recording/on.svg", "12:03"), ("scene/on.svg", "Gameplay"),
+], 820, strip=[
+    {"title": "Mic", "icon": "sound/dial-mic.svg", "value": "−3.0 dB", "bar": 0.79},
+    {"title": "Desktop", "icon": "sound/dial-speaker.svg", "value": "0.0 dB", "bar": 0.83},
+    {"title": "Music", "icon": "sound/dial-speaker-muted.svg", "value": "Muted", "colour": "#FF5050", "bar": 0.7, "bar_colour": "#6E7179"},
+    {"title": "Push to show", "icon": "scenes/dial.svg", "value": "Chatting", "colour": "#F2B544"},
+])}"""
     return {"thumbnail": thumbnail, "gallery-1-capture": capture, "gallery-2-scenes": scenes, "gallery-3-sound": sound}
 
 
 def main() -> None:
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 4:
         sys.exit(__doc__)
-    chrome, assets = sys.argv[1], Path(sys.argv[2])
+    chrome, assets, devices = sys.argv[1], Path(sys.argv[2]), Path(sys.argv[3])
     OUT.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory() as work:
-        for name, body in pictures(assets).items():
+        for name, body in pictures(assets, devices).items():
             html = Path(work) / f"{name}.html"
             html.write_text(page(body, assets), encoding="utf-8")
             out = OUT / f"{name}.png"
             subprocess.run([
                 chrome, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run", "--no-default-browser-check",
                 f"--user-data-dir={Path(work) / 'profile'}", "--force-device-scale-factor=1", "--window-size=1920,960",
-                "--allow-file-access-from-files", "--virtual-time-budget=3000", f"--screenshot={out}", html.as_uri(),
-            ], check=True, capture_output=True, timeout=120)
+                "--allow-file-access-from-files", "--virtual-time-budget=5000", f"--screenshot={out}", html.as_uri(),
+            ], check=True, capture_output=True, timeout=180)
             print(out.name, Image.open(out).size)
     # The app icon: HasteClip's black plate to the edges, the glyph where
     # HasteClip's own icon has it (824 px, 100 in, in icon-1024.png). The
