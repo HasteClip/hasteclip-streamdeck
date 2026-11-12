@@ -87,13 +87,23 @@ In this folder, made by `scripts/make-listing.py`:
 
 The hardware is Elgato's own, from its official
 [Stream Deck Templates](https://www.figma.com/community/file/1315040482142393672/stream-deck-templates)
-Figma file. Each device is exported as SVG with "Include id attribute", and
-kept outside this repository because they're Elgato's files. The keys show
-the plugin's real key pictures and titles, under Elgato's bevel and
-reflections. To draw the pictures again:
+Figma file. Each device is exported from Figma twice, with its keys black as
+in the template:
+
+- As PNG (4x is best; save the file, since a pasted copy comes through at
+  1x). This is the device in the pictures, exactly as Figma draws it. Figma's
+  SVG export can't carry its glass, ridge and knobs: browsers draw those
+  effects differently.
+- As SVG with "Include id attribute", only for where its keys and its touch
+  strip are.
+
+They're kept outside this repository because they're Elgato's files. The
+plugin's real key pictures and titles are blended onto Figma's black keys
+with "screen", so Elgato's glass stays as Figma drew it. To draw the
+pictures again:
 
 ```sh
-python scripts/make-listing.py <chrome.exe> <HasteClip's crates/app/assets> <folder with the device SVGs>
+python scripts/make-listing.py <chrome.exe> <HasteClip's crates/app/assets> <folder with the device PNGs and SVGs>
 ```
 
 ## Demo video

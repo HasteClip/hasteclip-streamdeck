@@ -5,20 +5,25 @@ Elgato's product guidelines ask).
     python scripts/make-listing.py <chrome.exe> <HasteClip's crates/app/assets> <devices folder>
 
 <devices folder> holds Elgato's own pictures of the hardware, from its
-official "Stream Deck Templates" Figma file, each device exported as SVG
-with its layers' names as ids: "Stream Deck MK.2.svg", "Stream Deck
-Mini.svg" and "Stream Deck +.svg". They're Elgato's, so they're not in this
-repository. The Marketplace asks for its hardware to be shown with them.
+official "Stream Deck Templates" Figma file, for the Stream Deck MK.2, Mini
+and +, each twice:
+
+- Figma's render of it, exported as PNG (4x is best; .png or .webp), as the
+  device: its glass, its ridge and its knobs exactly as Figma draws them,
+  which Figma's SVG export can't carry (browsers draw its effects
+  differently).
+- The same frame exported as SVG with its layers' names as ids, only for
+  where its keys and its touch strip are.
+
+They're Elgato's, so they're not in this repository. The Marketplace asks
+for its hardware to be shown with them.
 
 Each key shows what it shows on the deck: the plugin's own key pictures
-(imgs/), put into the key's "Content" layer, under Elgato's bevel and
-reflections, with the title Stream Deck draws. The Stream Deck +'s touch
-strip shows the dials' layouts as the plugin fills them. Two things in the
-exports are changed so Chrome draws them as Figma does: the bevel's
-background blur (an HTML element in the SVG, which would blur the whole
-key) is left out, and the reflections' shapes are made solid. They were 1%
-opaque, which made their inner glints cover the whole key; they're blended
-with "screen", where black changes nothing.
+(imgs/) and the title Stream Deck draws, blended onto Figma's black keys
+with "screen": the picture's black changes nothing (the keys' bevel and
+reflections stay as Figma drew them), and its icon and title show through,
+under the glass's glints. The Stream Deck +'s touch strip shows the dials'
+layouts as the plugin fills them, the same way.
 
 The pictures are pages drawn by Chrome, headless (with a profile of its own,
 so it never touches yours), in HasteClip's font, Hanken Grotesk.
@@ -71,59 +76,46 @@ def number(content: ET.Element) -> int:
     return int(m.group(1) or 1) if m else 0
 
 
-def device(path: Path, keys: list[tuple[str, str]], width: int, strip: list[dict] | None = None) -> str:
-    """Elgato's device, `width` px wide, its keys showing `keys` (picture,
-    title) in order, and its touch strip (Stream Deck +) showing `strip`."""
-    root = ET.parse(path).getroot()
-    parents = {child: parent for parent in root.iter() for child in parent}
-    for el in list(root.iter(NS + "foreignObject")):
-        parents[el].remove(el)
-    for g in root.iter(NS + "g"):
-        if "mix-blend-mode:screen" in (g.get("style") or ""):
-            for shape in g.iter():
-                if shape.get("fill-opacity") == "0.01":
-                    shape.set("fill-opacity", "1")
-    # The MK.2's middle key has a ridge: in Elgato's photos a faint, clear
-    # oval you read the title through. Chrome draws the template's as a grey
-    # disc: faint, as on the deck.
-    for g in root.iter(NS + "g"):
-        if g.get("id") == "Ridge":
-            g.set("opacity", "0.3")
-    # Each filter's area, wider: Chrome cuts a filter's steps off at its
-    # area, and the reflections' inner glints (a shape grown, then moved)
-    # were cut into wide bands down the keys' sides.
-    for f in root.iter(NS + "filter"):
-        if f.get("filterUnits") == "userSpaceOnUse":
-            for k, d in (("x", -48), ("y", -48), ("width", 96), ("height", 96)):
-                f.set(k, f"{float(f.get(k)) + d:g}")
+def render_of(devices: Path, name: str) -> Path:
+    """Figma's render of device `name`."""
+    for suffix in (".png", ".webp"):
+        path = devices / f"{name}{suffix}"
+        if path.exists():
+            return path
+    sys.exit(f"no {name}.png (Figma's render of it) in {devices}")
+
+
+def device(devices: Path, name: str, keys: list[tuple[str, str]], width: int, strip: list[dict] | None = None) -> str:
+    """Elgato's device `name`, `width` px wide, its keys showing `keys`
+    (picture, title) in order, and its touch strip (Stream Deck +) `strip`."""
+    root = ET.parse(devices / f"{name}.svg").getroot()
+    vw, vh = (float(v) for v in root.get("viewBox").split()[2:])
     contents = sorted((g for g in root.iter(NS + "g") if number(g)), key=number)
     if len(keys) != len(contents):
-        sys.exit(f"{path.name} has {len(contents)} keys, not {len(keys)}")
+        sys.exit(f"{name} has {len(contents)} keys, not {len(keys)}")
+    overlay = ET.Element(NS + "svg", {"viewBox": f"0 0 {vw:g} {vh:g}", "class": "keys"})
     for content, (picture, title) in zip(contents, keys):
         shape = content.find(NS + "rect")
         x, y = re.search(r"translate\(([\d.]+) ([\d.]+)\)", shape.get("transform")).groups()
         size = shape.get("width")
-        content.remove(shape)
-        nested = ET.SubElement(content, NS + "svg", {"x": x, "y": y, "width": size, "height": size, "viewBox": "0 0 144 144"})
+        nested = ET.SubElement(overlay, NS + "svg", {"x": x, "y": y, "width": size, "height": size, "viewBox": "0 0 144 144"})
         nested.extend(key_picture(picture, title))
     if strip:
-        touch_strip(root, strip)
-    vw, vh = (float(v) for v in root.get("viewBox").split()[2:])
-    root.set("width", str(width))
-    root.set("height", str(round(width * vh / vw)))
-    return ET.tostring(root, encoding="unicode")
+        glass = next(el for el in root.iter(NS + "image") if el.get("width") == "896")
+        touch_strip(overlay, [float(glass.get(k)) for k in ("x", "y", "width", "height")], strip)
+    render = render_of(devices, name)
+    height = round(width * vh / vw)
+    return f'<div class="device" style="width:{width}px;height:{height}px"><img src="{render.as_uri()}">{ET.tostring(overlay, encoding="unicode")}</div>'
 
 
-def touch_strip(root: ET.Element, panels: list[dict]) -> None:
+def touch_strip(overlay: ET.Element, glass: list[float], panels: list[dict]) -> None:
     """The Stream Deck +'s touch strip: 800 x 100 pixels across its glass,
     a 200 x 100 layout over each dial ($A1 or $B1, as the plugin uses)."""
-    glass = next(el for el in root.iter(NS + "image") if el.get("width") == "896")
-    gx, gy, gw, gh = (float(glass.get(k)) for k in ("x", "y", "width", "height"))
+    gx, gy, gw, gh = glass
     scale = (gw - 32) / 800
     left, top = gx + 16, gy + (gh - 100 * scale) / 2
-    group = ET.Element(NS + "g")
     for i, panel in enumerate(panels):
-        g = ET.SubElement(group, NS + "g", {"transform": f"translate({left + i * 200 * scale:g} {top:g}) scale({scale:g})"})
+        g = ET.SubElement(overlay, NS + "g", {"transform": f"translate({left + i * 200 * scale:g} {top:g}) scale({scale:g})"})
         title = ET.SubElement(g, NS + "text", {"x": "16", "y": "28", "font-family": "Arial, Helvetica, sans-serif", "font-size": "15", "font-weight": "700", "fill": "#fff"})
         title.text = panel["title"]
         icon = ET.SubElement(g, NS + "svg", {"x": "16", "y": "40", "width": "48", "height": "48", "viewBox": "0 0 96 96"})
@@ -133,8 +125,6 @@ def touch_strip(root: ET.Element, panels: list[dict]) -> None:
         if "bar" in panel:
             ET.SubElement(g, NS + "rect", {"x": "76", "y": "74", "width": "108", "height": "12", "rx": "2", "fill": "#2b2c30"})
             ET.SubElement(g, NS + "rect", {"x": "76", "y": "74", "width": f"{108 * panel['bar']:g}", "height": "12", "rx": "2", "fill": panel.get("bar_colour", "#3DD68C")})
-    parent = next(p for p in root.iter() if glass in list(p))
-    parent.insert(list(parent).index(glass) + 1, group)
 
 
 def page(body: str, assets: Path) -> str:
@@ -150,17 +140,18 @@ p {{ font-size: 34px; color: #A2A4AB; margin: 0; line-height: 1.3; max-width: 60
 .brand {{ display: flex; flex-direction: column; gap: 26px; }}
 .brand img {{ width: 190px; height: 190px; }}
 .words {{ display: flex; flex-direction: column; width: 680px; }}
-svg {{ display: block; filter: drop-shadow(0 40px 60px rgba(0,0,0,.45)); }}
+.device {{ position: relative; flex: none; filter: drop-shadow(0 40px 60px rgba(0,0,0,.45)); }}
+.device > img {{ display: block; width: 100%; height: 100%; }}
+.device > svg.keys {{ position: absolute; inset: 0; width: 100%; height: 100%; mix-blend-mode: screen; }}
 </style></head><body>{body}</body></html>"""
 
 
 def pictures(assets: Path, devices: Path) -> dict[str, str]:
     logo = (assets / "icon-1024.png").as_uri()
-    mk2, mini, plus = devices / "Stream Deck MK.2.svg", devices / "Stream Deck Mini.svg", devices / "Stream Deck +.svg"
     thumbnail = f"""
 <div class="brand"><img src="{logo}"><h1>HasteClip<br>for Stream Deck</h1>
 <p>Save clips, switch scenes and mute your mic without leaving the game.</p></div>
-{device(mk2, [
+{device(devices, "Stream Deck MK.2", [
     ("save-clip/key.svg", ""), ("clipping/on.svg", ""), ("recording/off.svg", ""), ("stream/off.svg", ""), ("screenshot/key.svg", ""),
     # The middle key has the MK.2's ridge: one without a title.
     ("scene/on.svg", "Gameplay"), ("scene/off.svg", "Chatting"), ("mark/key.svg", ""), ("source/on.svg", "Webcam"), ("preset/on.svg", "Clipping"),
@@ -169,21 +160,21 @@ def pictures(assets: Path, devices: Path) -> dict[str, str]:
     capture = f"""
 <div class="words"><h2>Clip, record and go live</h2>
 <p>The keys light up while HasteClip clips, records or streams, with how long it's been going.</p></div>
-{device(mini, [
+{device(devices, "Stream Deck Mini", [
     ("save-clip/key.svg", ""), ("clipping/on.svg", ""), ("recording/on.svg", "12:03"),
     ("stream/on.svg", "1:02:03"), ("screenshot/key.svg", ""), ("mark/key.svg", ""),
 ], 860)}"""
     scenes = f"""
 <div class="words"><h2>Scenes, presets and sources</h2>
 <p>Switch scenes live, change presets, and show or hide your webcam. Names follow HasteClip.</p></div>
-{device(mini, [
+{device(devices, "Stream Deck Mini", [
     ("scene/on.svg", "Gameplay"), ("scene/off.svg", "Chatting"), ("scene/off.svg", "Next\nscene"),
     ("preset/on.svg", "Clipping"), ("source/on.svg", "Webcam"), ("source/off.svg", "Chat"),
 ], 860)}"""
     sound = f"""
 <div class="words"><h2>Mute, talk, turn it up</h2>
 <p>Mute any sound or hold a key to talk. On Stream Deck +, turn a dial for its volume or to pick a scene.</p></div>
-{device(plus, [
+{device(devices, "Stream Deck +", [
     ("sound/live.svg", "Mic"), ("sound/speaker.svg", "Desktop"), ("sound/speaker.svg", "Game"), ("sound/speaker-muted.svg", "Music"),
     ("clipping/on.svg", ""), ("save-clip/key.svg", ""), ("recording/on.svg", "12:03"), ("scene/on.svg", "Gameplay"),
 ], 820, strip=[
